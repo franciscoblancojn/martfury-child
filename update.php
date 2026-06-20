@@ -7,96 +7,88 @@ if (!function_exists("github_updater_theme_wordpress_v1")) {
         if (!is_admin()) {
             return;
         }
+        $current_url = $_SERVER['REQUEST_URI'];
 
-        add_filter('pre_set_site_transient_update_themes', function ($transient) use ($config) {
+        if (
+            strpos($current_url, '/wp-admin/themes.php') !== false ||
+            strpos($current_url, '/wp-admin/update-core.php') !== false
+        ) {
+            add_filter('site_transient_update_themes', function ($transient) use ($config) {
 
-            $theme_slug = $config['theme_slug'];
-            $theme = wp_get_theme($theme_slug);
-
-            if (!($theme->exists() && $theme->get('Version'))) {
-                return $transient;
-            }
-
-            $current_version = $theme->get('Version');
-
-            if (isset($transient->checked[$theme_slug]) && $transient->checked[$theme_slug] === $current_version) {
-                return $transient;
-            }
-
-            $github_api_url = sprintf(
-                'https://api.github.com/repos/%s/releases/latest',
-                $config['path_repository']
-            );
-
-            $github_token = join('', $config['token_array_split']);
-
-            $cache_key = 'github_theme_updater_' . md5($theme_slug);
-
-            $release = get_transient($cache_key);
-
-            if (!$release) {
-
-                $response = wp_remote_get($github_api_url, [
-                    'headers' => [
-                        'User-Agent'    => 'WordPress-Updater',
-                        'Authorization' => 'token ' . $github_token,
-                    ]
-                ]);
-
-                if (is_wp_error($response)) {
+                if (empty($transient->checked)) {
                     return $transient;
                 }
 
-                $http_code = wp_remote_retrieve_response_code($response);
-                if ($http_code !== 200) {
-                    return $transient;
-                }
+                $theme_slug = $config['theme_slug'];
 
-                $release = json_decode(
-                    wp_remote_retrieve_body($response)
+                $github_api_url = sprintf(
+                    'https://api.github.com/repos/%s/releases/latest',
+                    $config['path_repository']
                 );
+
+                $cache_key = 'github_theme_updater_' . md5($theme_slug);
+
+                $release = get_transient($cache_key);
+                // ⚠️ Asegúrate de almacenar el token de manera segura
+                $github_token = join('', $config['token_array_split']);
+
+                if (!$release) {
+
+                    $response = wp_remote_get($github_api_url, [
+                        'headers' => [
+                            'User-Agent'    => 'WordPress-Updater',
+                            'Authorization' => 'token ' . $github_token,
+                        ]
+                    ]);
+
+                    if (is_wp_error($response)) {
+                        return $transient;
+                    }
+
+                    $release = json_decode(
+                        wp_remote_retrieve_body($response)
+                    );
+
+                    if (isset($release->message) && strpos($release->message, 'API rate limit exceeded') !== false) {
+                        set_transient($cache_key, 'RATE_LIMIT', 1 * MINUTE_IN_SECONDS);
+                        return $transient;
+                    }
+                    set_transient($cache_key, $release, MINUTE_IN_SECONDS);
+                }
 
                 if (!isset($release->tag_name)) {
                     return $transient;
                 }
 
-                set_transient(
-                    $cache_key,
-                    $release,
-                    DAY_IN_SECONDS
+                $latest_version = ltrim(
+                    $release->tag_name,
+                    'v'
                 );
-            }
 
-            if (!isset($release->tag_name)) {
+                $current_version = wp_get_theme($theme_slug)->get('Version');
+
+                if (
+                    version_compare(
+                        $current_version,
+                        $latest_version,
+                        '<'
+                    )
+                ) {
+
+                    $transient->response[$theme_slug] = [
+                        'theme'       => $theme_slug,
+                        'new_version' => $latest_version,
+                        'url'         => 'https://github.com/' . $config['path_repository'],
+                        'package'     => 'https://github.com/' .
+                            $config['path_repository'] .
+                            '/archive/refs/heads/' .
+                            $config['branch'] .
+                            '.zip',
+                    ];
+                }
+
                 return $transient;
-            }
-
-            $latest_version = ltrim(
-                $release->tag_name,
-                'v'
-            );
-
-            if (
-                version_compare(
-                    $current_version,
-                    $latest_version,
-                    '<'
-                )
-            ) {
-
-                $transient->response[$theme_slug] = [
-                    'theme'       => $theme_slug,
-                    'new_version' => $latest_version,
-                    'url'         => 'https://github.com/' . $config['path_repository'],
-                    'package'     => 'https://github.com/' .
-                        $config['path_repository'] .
-                        '/archive/refs/heads/' .
-                        $config['branch'] .
-                        '.zip',
-                ];
-            }
-
-            return $transient;
-        });
+            });
+        }
     }
 }

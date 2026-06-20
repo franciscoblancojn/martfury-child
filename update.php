@@ -8,13 +8,20 @@ if (!function_exists("github_updater_theme_wordpress_v1")) {
             return;
         }
 
-        add_filter('site_transient_update_themes', function ($transient) use ($config) {
+        add_filter('pre_set_site_transient_update_themes', function ($transient) use ($config) {
 
-            if (empty($transient->checked)) {
+            $theme_slug = $config['theme_slug'];
+            $theme = wp_get_theme($theme_slug);
+
+            if (!($theme->exists() && $theme->get('Version'))) {
                 return $transient;
             }
 
-            $theme_slug = $config['theme_slug'];
+            $current_version = $theme->get('Version');
+
+            if (isset($transient->checked[$theme_slug]) && $transient->checked[$theme_slug] === $current_version) {
+                return $transient;
+            }
 
             $github_api_url = sprintf(
                 'https://api.github.com/repos/%s/releases/latest',
@@ -40,14 +47,23 @@ if (!function_exists("github_updater_theme_wordpress_v1")) {
                     return $transient;
                 }
 
+                $http_code = wp_remote_retrieve_response_code($response);
+                if ($http_code !== 200) {
+                    return $transient;
+                }
+
                 $release = json_decode(
                     wp_remote_retrieve_body($response)
                 );
 
+                if (!isset($release->tag_name)) {
+                    return $transient;
+                }
+
                 set_transient(
                     $cache_key,
                     $release,
-                    MINUTE_IN_SECONDS
+                    DAY_IN_SECONDS
                 );
             }
 
@@ -59,10 +75,6 @@ if (!function_exists("github_updater_theme_wordpress_v1")) {
                 $release->tag_name,
                 'v'
             );
-
-            $theme = wp_get_theme($theme_slug);
-
-            $current_version = $theme->get('Version');
 
             if (
                 version_compare(
@@ -86,7 +98,5 @@ if (!function_exists("github_updater_theme_wordpress_v1")) {
 
             return $transient;
         });
-
-        // delete_site_transient('update_themes');
     }
 }

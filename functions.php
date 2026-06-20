@@ -20,7 +20,7 @@ require_once plugin_dir_path(__FILE__) . 'update.php';
 add_action('init', function () {
     github_updater_theme_wordpress_v1([
         'theme_slug' => 'martfury-child',
-        'path_repository' => 'franciscoblanco/martfury-child',
+        'path_repository' => 'franciscoblancojn/martfury-child',
         'branch' => 'master',
         'token_array_split' => [
             "g",

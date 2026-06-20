@@ -3,14 +3,9 @@
 add_action('wp_enqueue_scripts', function () {
 
     wp_enqueue_style(
-        'martfury-parent-style',
-        get_template_directory_uri() . '/style.css'
-    );
-
-    wp_enqueue_style(
         'martfury-child-style',
         get_stylesheet_uri(),
-        ['martfury-parent-style'],
+        ['martfury'],
         wp_get_theme()->get('Version')
     );
 });

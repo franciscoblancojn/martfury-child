@@ -1,0 +1,40 @@
+{
+  "name": "martfury-child",
+  "version": "1.0.0",
+  "description": "Theme buy tedotamos.com",
+  "main": "index.js",
+  "scripts": {
+    "v": "grep -i \"Version:\" style.css | sed 's/.*Version:[[:space:]]*//'",
+    "sync:package": "VERSION=$(npm run -s v) && npm version $VERSION --no-git-tag-version",
+    "sync:readme": "VERSION=$(npm run -s v) && sed -i \"s/^Stable tag:.*/Stable tag: $VERSION/\" README.md",
+    "sync:version": "npm run sync:package",
+    "push-tag": "npm run sync:version && VERSION=$(npm run -s v) && git add . && git commit -m \"Release $VERSION\" && git tag $VERSION && git push origin master && git push origin $VERSION",
+    "rm-composer": "echo 'off' || true || rm -r vendor/composer || true",
+    "rm-autoload": "echo 'off' || true || rm vendor/autoload.php || true",
+    "rm-gitignore": "find vendor -type f -name \".gitignore\" -delete || true",
+    "rm-composer-json": "find vendor -type f -name \"composer.json\" -delete || true",
+    "rm-package-json": "find vendor -type f -name \"package.json\" -delete || true",
+    "rm-README": "find vendor -type f -name \"README.md\" -delete || true",
+    "rm-composer-lock": "rm composer.lock || true",
+    "rm-post": "npm run rm-composer-lock && npm run rm-gitignore && npm run rm-autoload && npm run rm-composer && npm run rm-composer-json && npm run rm-package-json && npm run rm-README",
+    "rm-vendor": "npm run rm-composer-lock && rm -r ./libs || true",
+    "mv-post": "mv vendor libs",
+    "update": "npm run rm-vendor && npm run install",
+    "install": "composer install --no-dev --optimize-autoloader && npm run rm-post && npm run mv-post",
+    "optimize": "composer install --no-dev --optimize-autoloader"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/franciscoblancojn/martfury-child.git"
+  },
+  "keywords": [
+    "aveonline",
+    "shipping"
+  ],
+  "author": "franciscoblancojn",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/franciscoblancojn/martfury-child/issues"
+  },
+  "homepage": "https://github.com/franciscoblancojn/martfury-child#readme"
+}
